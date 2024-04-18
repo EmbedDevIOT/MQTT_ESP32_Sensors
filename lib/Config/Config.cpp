@@ -7,13 +7,16 @@ void SystemInit(void)
 #ifdef I2C_SCAN
   I2C_Scanning();
 #endif
-  pinMode(LEDIO2,OUTPUT);
-  digitalWrite(LEDIO2,LOW);
+  pinMode(LEDIO2, OUTPUT);
+  digitalWrite(LEDIO2, LOW);
   GetChipID();
   ShowInfoDevice();
 }
 /*******************************************************************************************************/
-
+void FloatToCharArr(float payload, char *output_msg)
+{
+  dtostrf(payload, 1, 2, output_msg);
+}
 /***************************** Function Show information or Device *************************************/
 void ShowInfoDevice(void)
 {

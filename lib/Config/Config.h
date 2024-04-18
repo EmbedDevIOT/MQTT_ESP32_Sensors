@@ -102,5 +102,6 @@ void SystemInit(void); //  System Initialisation (variables and structure)
 void I2C_Scanning(void);
 void ShowInfoDevice(void); //  Show information or this Device
 void GetChipID(void);
+void FloatToCharArr(float payload, char *output_msg);
 //============================================================================
 #endif // _Config_H

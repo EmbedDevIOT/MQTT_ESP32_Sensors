@@ -1,6 +1,10 @@
+/*
+example: https://randomnerdtutorials.com/esp32-mqtt-publish-subscribe-arduino-ide/
+*/
 #include "Config.h"
 
 #include "WF.h"
+#include "mqtt.h"
 
 #define BMP180 // Set BMP180 sensors
 
@@ -20,8 +24,6 @@ TaskHandle_t SensorTaskCore_1;
 TaskHandle_t LedTaskCore_1;
 
 Adafruit_BMP085 bmp; // 0x76 -BME280 / 0x77 - BMP180
-WiFiClient espClient;
-PubSubClient client(espClient);
 //======================================================================
 
 //============================== STRUCTURES =============================
@@ -60,7 +62,8 @@ void setup()
   Serial.println(F("BME...Done"));
   WIFIinit(Client);
 
-  if(WiFi.status() == WL_CONNECTED) ST.WiFi_ON = true;
+  if (WiFi.status() == WL_CONNECTED)
+    ST.WiFi_ON = true;
 
 #ifdef BME280
   GetBMEData();
@@ -68,9 +71,6 @@ void setup()
 #ifdef BMP180
   GetBMPData();
 #endif
-
-
-
 
   xTaskCreatePinnedToCore(
       HandlerCore0,
@@ -165,7 +165,7 @@ void LedsHandler(void *pvParametrs)
     {
       static bool led_state = true;
       led_state = !led_state;
-      digitalWrite(LEDIO2, led_state);
+      // digitalWrite(LEDIO2, led_state);
     }
 
     vTaskDelay(2000 / portTICK_PERIOD_MS);
