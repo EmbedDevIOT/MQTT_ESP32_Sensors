@@ -4,6 +4,11 @@
 /************************ System Initialisation **********************/
 void SystemInit(void)
 {
+#ifdef I2C_SCAN
+  I2C_Scanning();
+#endif
+  pinMode(LEDIO2,OUTPUT);
+  digitalWrite(LEDIO2,LOW);
   GetChipID();
   ShowInfoDevice();
 }
@@ -13,7 +18,7 @@ void SystemInit(void)
 void ShowInfoDevice(void)
 {
   Serial.println(F("Starting..."));
-  Serial.println(F("MQTT_Sensors"));
+  Serial.println(F("MQTT_Sensors Ecosystem"));
   Serial.print(F("SN:"));
   Serial.println(CFG.sn);
   Serial.print(F("fw_date:"));
@@ -75,4 +80,3 @@ void I2C_Scanning(void)
     Serial.println("done\n");
 }
 //=======================================================================
-
