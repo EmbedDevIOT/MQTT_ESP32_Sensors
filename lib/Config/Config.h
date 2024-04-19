@@ -102,7 +102,8 @@ struct MQ
   const char *server = "m5.wqtt.ru";
   const char *username = "u_4YVJEF";
   const char *password = "v1HPYZgn";
-  const int port = 10073;
+  const int portTLS = 10073;
+  const int port = 10072;
 };
 extern MQ mqtt;
 

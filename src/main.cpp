@@ -16,12 +16,22 @@ example: https://randomnerdtutorials.com/esp32-mqtt-publish-subscribe-arduino-id
 # mqtt_port: 10073
 */
 #include "Config.h"
+extern "C"
+{
+#include "freertos/FreeRTOS.h"
+#include "freertos/timers.h"
+}
 
 #include "WF.h"
 #include "mqtt.h"
 
 #define BMP180 // Set BMP180 sensors
 // #define BME280 // Set BME280 sensors  0x77
+
+#define MQTT_HOST "m5.wqtt.ru"
+// Temperature MQTT Topics
+#define MQTT_PUB_TEMP "embIO/bme280/temperature"
+#define MQTT_PUB_PRES "embIO/bme280/pressure"
 
 //=========================== GLOBAL VARIABLES =========================
 char msg[50];
@@ -38,10 +48,11 @@ TaskHandle_t TaskCore_1;
 TaskHandle_t SensorTaskCore_1;
 TaskHandle_t LedTaskCore_1;
 
-WiFiClient espClient;
-PubSubClient client(espClient);
+TimerHandle_t mqttReconnectTimer;
+TimerHandle_t wifiReconnectTimer;
 
-Adafruit_BMP085 bmp; // 0x76 -BME280
+AsyncMqttClient mqttClient;
+Adafruit_BMP085 bmp;
 //======================================================================
 
 //============================== STRUCTURES =============================
@@ -58,6 +69,7 @@ void HandlerCore0(void *pvParameters);
 void HandlerCore1(void *pvParameters);
 void SensorsHandler(void *pvParameters);
 void LedsHandler(void *pvParameters);
+
 // Sensors preset
 #ifdef BME280
 void GetBMEData(void);
@@ -65,6 +77,13 @@ void GetBMEData(void);
 #ifdef BMP180
 void GetBMPData(void);
 #endif
+
+void connectToMqtt(void);
+void onMqttConnect(bool sessionPresent);
+void onMqttDisconnect(AsyncMqttClientDisconnectReason reason);
+void onMqttPublish(uint16_t packetId);
+void connectToWifi();
+void WiFiEvent(WiFiEvent_t event);
 
 // void reconnect();
 // void callback(char *topic, byte *payload, unsigned int length);
@@ -75,20 +94,34 @@ void ShowDBG(void);
 //=======================       S E T U P       =========================
 void setup()
 {
-  CFG.fw = "0.0.5";
+  CFG.fw = "0.1.0";
   CFG.fwdate = "19.04.2024";
 
   Serial.begin(UARTSpeed);
 
   // BME INIT
   bmp.begin();
+  Serial.println(F("BME...Done"));
+
   SystemInit();
 
-  Serial.println(F("BME...Done"));
-  WIFIinit(Client);
+  mqttReconnectTimer = xTimerCreate("mqttTimer", pdMS_TO_TICKS(2000), pdFALSE, (void *)0, reinterpret_cast<TimerCallbackFunction_t>(connectToMqtt));
+  wifiReconnectTimer = xTimerCreate("wifiTimer", pdMS_TO_TICKS(2000), pdFALSE, (void *)0, reinterpret_cast<TimerCallbackFunction_t>(connectToWifi));
 
-  if (WiFi.status() == WL_CONNECTED)
-    ST.WiFi_ON = true;
+  WiFi.onEvent(WiFiEvent);
+
+  mqttClient.onConnect(onMqttConnect);
+  mqttClient.onDisconnect(onMqttDisconnect);
+  mqttClient.onPublish(onMqttPublish);
+  mqttClient.setServer(MQTT_HOST, 10072);
+  mqttClient.setCredentials(mqtt.username, mqtt.password);
+  connectToWifi();
+  // mqttClient.setServer(MQTT_HOST, MQTT_PORT);
+
+  // WIFIinit(Client);
+
+  // if (WiFi.status() == WL_CONNECTED)
+  //   ST.WiFi_ON = true;
 
   // client.setServer(mqtt.server, mqtt.port);
   // client.setCallback(callback);
@@ -113,7 +146,7 @@ void setup()
   xTaskCreatePinnedToCore(
       HandlerCore1,
       "TaskCore_1",
-      2048,
+      10000,
       NULL,
       1,
       &TaskCore_1,
@@ -171,9 +204,24 @@ void HandlerCore1(void *pvParameters)
   Serial.println(xPortGetCoreID());
   for (;;)
   {
-    // ShowDBG();
+    GetBMPData();
 
-    vTaskDelay(1000 / portTICK_PERIOD_MS);
+    // Publish an MQTT message on topic esp32/BME280/temperature
+    uint16_t packetIdPub1 = mqttClient.publish(MQTT_PUB_TEMP, 0, true, String(SNS_BMP.Tf).c_str());
+    Serial.printf("Publishing on topic %s at QoS 0, packetId: %i", "/temp", packetIdPub1);
+    Serial.printf("Message: %.2f \n", SNS_BMP.Tf);
+
+    // // Publish an MQTT message on topic esp32/BME2800/humidity
+    // uint16_t packetIdPub2 = mqttClient.publish(MQTT_PUB_HUM, 1, true, String(hum).c_str());
+    // Serial.printf("Publishing on topic %s at QoS 1, packetId %i: ", MQTT_PUB_HUM, packetIdPub2);
+    // Serial.printf("Message: %.2f \n", hum);
+
+    // Publish an MQTT message on topic esp32/BME2800/pressure
+    uint16_t packetIdPub3 = mqttClient.publish(MQTT_PUB_PRES, 1, true, String(SNS_BMP.PmmHg).c_str());
+    Serial.printf("Publishing on topic %s at QoS 1, packetId: %i", MQTT_PUB_PRES, packetIdPub3);
+    Serial.printf("Message: %.3f \n", SNS_BMP.PmmHg);
+
+    vTaskDelay(10000 / portTICK_PERIOD_MS);
   }
 }
 
@@ -183,7 +231,7 @@ void SensorsHandler(void *pvParametrs)
   Serial.println(xPortGetCoreID());
   for (;;)
   {
-    GetBMPData();
+
     ShowDBG();
     vTaskDelay(3000 / portTICK_PERIOD_MS);
   }
@@ -253,12 +301,65 @@ void ShowDBG()
 
 //=======================       M Q T T         =========================
 /*** Call back Method for Receiving MQTT messages and Switching LED ****/
-void callback(char *topic, byte *payload, unsigned int length)
+// void callback(char *topic, byte *payload, unsigned int length)
+// {
+//   String data_pay;
+//   for (int i = 0; i < length; i++)
+//   {
+//     data_pay += String((char)payload[i]);
+//   }
+// }
+void connectToWifi()
 {
-  String data_pay;
-  for (int i = 0; i < length; i++)
+  Serial.println("Connecting to Wi-Fi...");
+  WiFi.begin(CFG.ssid, CFG.password);
+}
+
+void connectToMqtt()
+{
+  Serial.println("Connecting to MQTT...");
+  mqttClient.connect();
+}
+
+void WiFiEvent(WiFiEvent_t event)
+{
+  Serial.printf("[WiFi-event] event: %d\n", event);
+  switch (event)
   {
-    data_pay += String((char)payload[i]);
+  case SYSTEM_EVENT_STA_GOT_IP:
+    Serial.println("WiFi connected");
+    Serial.println("IP address: ");
+    Serial.println(WiFi.localIP());
+    connectToMqtt();
+    break;
+  case SYSTEM_EVENT_STA_DISCONNECTED:
+    Serial.println("WiFi lost connection");
+    xTimerStop(mqttReconnectTimer, 0); // ensure we don't reconnect to MQTT while reconnecting to Wi-Fi
+    xTimerStart(wifiReconnectTimer, 0);
+    break;
   }
+}
+
+void onMqttConnect(bool sessionPresent)
+{
+  Serial.println("Connected to MQTT.");
+  Serial.print("Session present: ");
+  Serial.println(sessionPresent);
+}
+
+void onMqttDisconnect(AsyncMqttClientDisconnectReason reason)
+{
+  Serial.println("Disconnected from MQTT.");
+  if (WiFi.isConnected())
+  {
+    xTimerStart(mqttReconnectTimer, 0);
+  }
+}
+
+void onMqttPublish(uint16_t packetId)
+{
+  Serial.print("Publish acknowledged.");
+  Serial.print("  packetId: ");
+  Serial.println(packetId);
 }
 //=======================================================================
