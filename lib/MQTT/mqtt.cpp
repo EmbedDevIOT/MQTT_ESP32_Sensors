@@ -5,9 +5,6 @@
 WiFiClient espClient;
 PubSubClient client(espClient);
 
-MQTT::MQTT(){
-
-}
 
 void MQTT::Handler()
 {
@@ -77,6 +74,12 @@ void MQTT::reconnect()
     }
 }
 
-void MQTT::PublishMsg(char *msg){
+void MQTT::PublishMsg(char *msg)
+{
+}
 
+MQTT::MQTT()
+{
+    client.setServer(mqtt.server, mqtt.port);    
+    // client.setCallback(callback);
 }

@@ -9,7 +9,6 @@ public:
     MQTT();
     void Handler(void);
     void PublishMsg(char *msg);
-private:
     void callback(char *topic, byte *message, unsigned int length);
     void reconnect();
 };

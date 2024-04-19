@@ -1,5 +1,19 @@
 /*
 example: https://randomnerdtutorials.com/esp32-mqtt-publish-subscribe-arduino-ide/
+# MQTT Service: https://dash.wqtt.ru/
+# Log: gmail acc
+# Author: EmbeddevIOT (Aleksey Baranov)
+# Date: (create to 19.04.24)
+# Discription: Control WiFi + MQTT + Yandex
+############ Hardware ###########
+# MCU: ESP32
+# Hardware: Sensors
+# Elegant OTA Update
+########### M Q T T  ###########
+# mqtt_name: u_4YVJEF
+# mqtt_pass: v1HPYZgn
+# mqtt_server: m5.wqtt.ru
+# mqtt_port: 10073
 */
 #include "Config.h"
 
@@ -7,6 +21,7 @@ example: https://randomnerdtutorials.com/esp32-mqtt-publish-subscribe-arduino-id
 #include "mqtt.h"
 
 #define BMP180 // Set BMP180 sensors
+// #define BME280 // Set BME280 sensors  0x77
 
 //=========================== GLOBAL VARIABLES =========================
 char msg[50];
@@ -23,11 +38,16 @@ TaskHandle_t TaskCore_1;
 TaskHandle_t SensorTaskCore_1;
 TaskHandle_t LedTaskCore_1;
 
-Adafruit_BMP085 bmp; // 0x76 -BME280 / 0x77 - BMP180
+WiFiClient espClient;
+PubSubClient client(espClient);
+
+Adafruit_BMP085 bmp; // 0x76 -BME280
 //======================================================================
 
 //============================== STRUCTURES =============================
 GlobalConfig CFG;
+MQ mqtt;
+TOP Topics;
 Sensors SNS_BME;
 Sensors SNS_BMP;
 Status ST;
@@ -45,13 +65,18 @@ void GetBMEData(void);
 #ifdef BMP180
 void GetBMPData(void);
 #endif
+
+// void reconnect();
+// void callback(char *topic, byte *payload, unsigned int length);
+// void publishMessage(const char *topic, String payload, boolean retained);
+
 void ShowDBG(void);
 //=======================================================================
 //=======================       S E T U P       =========================
 void setup()
 {
-  CFG.fw = "0.0.3";
-  CFG.fwdate = "18.04.2024";
+  CFG.fw = "0.0.5";
+  CFG.fwdate = "19.04.2024";
 
   Serial.begin(UARTSpeed);
 
@@ -64,6 +89,9 @@ void setup()
 
   if (WiFi.status() == WL_CONNECTED)
     ST.WiFi_ON = true;
+
+  // client.setServer(mqtt.server, mqtt.port);
+  // client.setCallback(callback);
 
 #ifdef BME280
   GetBMEData();
@@ -126,6 +154,12 @@ void HandlerCore0(void *pvParameters)
   Serial.println(xPortGetCoreID());
   for (;;)
   {
+    // MQTT check if client is connected
+    // if (!client.connected())
+    //   reconnect();
+
+    // client.loop();
+
     vTaskDelay(10 / portTICK_PERIOD_MS);
   }
 }
@@ -197,8 +231,7 @@ void GetBMPData()
 #endif
 //=======================================================================
 
-/*******************************************************************************************************/
-// Debug info
+//=======================      D E B U G        =========================
 void ShowDBG()
 {
   char message[52];
@@ -209,10 +242,23 @@ void ShowDBG()
   Serial.println(message);
 #endif
 #ifdef BMP180
-  sprintf(message, "T:%0.2f *C | A:%0d % | P1:%i Pa | P2:%3.0f mmHg", SNS_BMP.Tf, (int)SNS_BMP.A, SNS_BMP.Pa, SNS_BMP.PmmHg);
+  sprintf(message, "T:%0.2f *C | A:%0d % | P1:%i Pa | P2:%3.0f mmHg",
+          SNS_BMP.Tf, (int)SNS_BMP.A, SNS_BMP.Pa, SNS_BMP.PmmHg);
   Serial.println(message);
 #endif
   Serial.println(F("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"));
   Serial.println();
 }
-/*******************************************************************************************************/
+//=======================================================================
+
+//=======================       M Q T T         =========================
+/*** Call back Method for Receiving MQTT messages and Switching LED ****/
+void callback(char *topic, byte *payload, unsigned int length)
+{
+  String data_pay;
+  for (int i = 0; i < length; i++)
+  {
+    data_pay += String((char)payload[i]);
+  }
+}
+//=======================================================================

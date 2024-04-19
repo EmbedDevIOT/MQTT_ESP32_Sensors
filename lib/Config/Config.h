@@ -7,8 +7,12 @@
 #include <Adafruit_BMP085.h>
 #include <WiFi.h>
 #include <PubSubClient.h>
+#include "AsyncMqttClient.h"
 
 #define UARTSpeed 115200
+
+// Wifi Network Select (set)
+#define WORK_NET
 
 #define WiFi_
 #define Client 0
@@ -42,17 +46,20 @@ struct GlobalConfig
   String fw = "";
 
   // System_Information
-  String fwdate = "04.04.2024";
+  String fwdate = "19.04.2024";
   String chipID = "";
   String MacAdr = "";
 
   String APSSID = "Beekeeper";
   String APPAS = "12345678";
 
+#ifdef WORK_NET
   const char *ssid = "MkT";
   const char *password = "QFCxfXMA3";
-  const char *mqtt_server = "m5.wqtt.ru";
-  uint16_t mqtt_port = 1183;
+#else
+  const char *ssid = "EMBNET2G";         // WiFi Login
+  const char *password = "Ae19co90$!eT"; // WiFi Pass
+#endif
 
   byte IP1 = 192;
   byte IP2 = 168;
@@ -68,7 +75,6 @@ struct GlobalConfig
   byte MK4 = 0;
 
   byte WiFiMode = AccessPoint; // Режим работы WiFi
-
 };
 extern GlobalConfig CFG;
 //=======================================================================
@@ -88,6 +94,29 @@ struct Sensors
 extern Sensors SNS_BME;
 extern Sensors SNS_BMP;
 //=======================================================================
+
+//===========================     M Q T T   =============================
+struct MQ
+{
+  // MQTT broker credentials (set to NULL if not required)
+  const char *server = "m5.wqtt.ru";
+  const char *username = "u_4YVJEF";
+  const char *password = "v1HPYZgn";
+  const int port = 10073;
+};
+extern MQ mqtt;
+
+struct TOP
+{
+  const String device_topic = "/devCM";
+  String prog = "/devCM/progs";
+  String cnt = "cnt";
+  String pwrState = "/PwrST";
+  String temp = "/Temp";
+};
+extern TOP Topics;
+//=======================================================================
+
 //=======================================================================
 struct Status
 {
