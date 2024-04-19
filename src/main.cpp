@@ -28,7 +28,9 @@ extern "C"
 #define BMP180 // Set BMP180 sensors
 // #define BME280 // Set BME280 sensors  0x77
 
-#define MQTT_HOST "m5.wqtt.ru"
+// #define MQTT_HOST "m5.wqtt.ru"
+#define MQTT_HOST IPAddress(89, 109, 8, 114) //http://89.109.8.114/
+
 // Temperature MQTT Topics
 #define MQTT_PUB_TEMP "embIO/bme280/temperature"
 #define MQTT_PUB_PRES "embIO/bme280/pressure"
@@ -113,7 +115,7 @@ void setup()
   mqttClient.onConnect(onMqttConnect);
   mqttClient.onDisconnect(onMqttDisconnect);
   mqttClient.onPublish(onMqttPublish);
-  mqttClient.setServer(MQTT_HOST, 10072);
+  mqttClient.setServer(MQTT_HOST, 1883);
   mqttClient.setCredentials(mqtt.username, mqtt.password);
   connectToWifi();
   // mqttClient.setServer(MQTT_HOST, MQTT_PORT);
