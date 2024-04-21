@@ -96,8 +96,8 @@ void ShowDBG(void);
 //=======================       S E T U P       =========================
 void setup()
 {
-  CFG.fw = "0.1.0";
-  CFG.fwdate = "19.04.2024";
+  CFG.fw = "0.1.1";
+  CFG.fwdate = "21.04.2024";
 
   Serial.begin(UARTSpeed);
 
@@ -115,7 +115,7 @@ void setup()
   mqttClient.onConnect(onMqttConnect);
   mqttClient.onDisconnect(onMqttDisconnect);
   mqttClient.onPublish(onMqttPublish);
-  mqttClient.setServer(MQTT_HOST, 1883);
+  mqttClient.setServer(MQTT_HOST, 11883);
   mqttClient.setCredentials(mqtt.username, mqtt.password);
   connectToWifi();
   // mqttClient.setServer(MQTT_HOST, MQTT_PORT);

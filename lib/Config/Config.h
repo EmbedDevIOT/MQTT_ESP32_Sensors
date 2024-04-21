@@ -99,11 +99,12 @@ extern Sensors SNS_BMP;
 struct MQ
 {
   // MQTT broker credentials (set to NULL if not required)
-  const char *server = "m5.wqtt.ru";
+  // const char *server = "m5.wqtt.ru";
+  const char  *server = "http://89.109.8.114/";
   const char *username = "homeassistant";
   const char *password = "ohquai9ahwae8vigeing8gei2thiizaes1jeej3ethiejierah1ieph5cheajeeL";
   const int portTLS = 10073;
-  const int port = 8001; //(http://89.109.8.114:8001/); //10072
+  const int port = 1883; //(http://89.109.8.114:8001/); //10072
 };
 extern MQ mqtt;
 
